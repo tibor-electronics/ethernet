@@ -1,5 +1,7 @@
 # https://en.wikipedia.org/wiki/Address_Resolution_Protocol#Packet_structure
 
+REPLY = 0x02
+
 class ArpFrame:
     def __init__(self, buffer):
         self.htype = buffer[0] * 256 + buffer[1]
@@ -15,6 +17,23 @@ class ArpFrame:
         self.tha = ":".join('%02x' % buffer[pos+idx] for idx in range(self.hlen))
         pos += self.hlen
         self.tpa = ".".join('%d' % buffer[pos+idx] for idx in range(self.plen))
+
+    def response(self, src_mac_addr):
+        buffer = [
+            (self.htype >> 8) & 0xFF, self.htype & 0xFF,
+            (self.ptype >> 8) & 0xFF, self.ptype & 0xFF,
+            self.hlen,
+            self.plen,
+            0, REPLY
+        ]
+
+        buffer.extend(src_mac_addr)
+        buffer.extend([int(b) for b in self.tpa.split('.')])
+        buffer.extend([int(b, 16) for b in self.sha.split(':')])
+        buffer.extend([int(b) for b in self.spa.split('.')])
+        buffer.extend([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+
+        return buffer
 
     def __repr__(self):
         parts = [

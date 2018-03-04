@@ -164,6 +164,15 @@ EIE_DMAIE = 0x20
 EIE_PKTIE = 0x40
 EIE_INTIE = 0x80
 
+# EIR register flags
+EIR_RXERIF = 0x01
+EIR_TXERIF = 0x02
+EIR_WOLIF  = 0x04
+EIR_TXIF   = 0x08
+EIR_LINKIF = 0x10
+EIR_DMAIF  = 0x20
+EIR_PKTIF  = 0x40
+
 # ESTAT register flags
 ESTAT_INT     = 0x80
 ESTAT_LATECOL = 0x10
@@ -273,6 +282,12 @@ def read_buffer(size):
 	return data[1:]
 
 
+def write_buffer(buffer):
+	data = list(buffer)
+	data.insert(0, ENC28J60_WRITE_BUF_MEM)
+	spi.xfer2(data)
+
+
 def write_op(opcode, addr, data):
 	addr = addr & ADDR_MASK
 
@@ -346,6 +361,25 @@ def receive_packet():
 	return data
 
 
+def send_packet(frame):
+	while (read_phy(ECON1) & ECON1_TXRTS) == ECON1_TXRTS:
+		if read_byte(EIR) & EIR_TXERIF == EIR_TXERIF:
+			write_op(ENC28J60_BIT_FIELD_SET, ECON1, ECON1_TXRST)
+			write_op(ENC28J60_BIT_FIELD_CLR, ECON1, ECON1_TXRST)
+
+	print("sending packet")
+	write_short(EWRPT, TXSTART_INIT)						# write pointer to start of buffer
+	write_short(ETXND, TXSTART_INIT + len(frame))			# set packet size
+	write_op(ENC28J60_WRITE_BUF_MEM, 0, 0x00)				# use macon3 settings
+	write_buffer(frame)										# copy frame into buffer
+	write_op(ENC28J60_BIT_FIELD_SET, ECON1, ECON1_TXRTS)	# send buffer to network
+
+	# Reset the transmit logic problem. See Rev. B4 Silicon Errata point 12.
+	if (read_byte(EIR) & EIR_TXERIF == EIR_TXERIF):
+		write_op(ENC28J60_BIT_FIELD_CLR, ECON1, ECON1_TXRST)
+	print("packet sent")
+
+
 def soft_reset():
 	write_op(ENC28J60_SOFT_RESET, 0, ENC28J60_SOFT_RESET)
 
@@ -360,6 +394,8 @@ if __name__ == "__main__":
 	device = 0
 	mac_addr = [0x02, 0x03, 0x04, 0x05, 0x06, 0x07]
 	mac_addr_str = ":".join("{:02x}".format(byte) for byte in mac_addr)
+	ip_addr = "10.0.1.254"
+	input_mac_filter = None
 
 	# connect and configure device
 	spi = spidev.SpiDev()
@@ -423,9 +459,6 @@ if __name__ == "__main__":
 		packet = receive_packet()
 
 		if len(packet) > 0:
-			packet_number += 1
-			log()
-
 			if len(packet) >= 13:
 				dst_mac = ":".join("{:02x}".format(byte) for byte in packet[0:6])
 				src_mac = ":".join("{:02x}".format(byte) for byte in packet[6:12])
@@ -442,6 +475,13 @@ if __name__ == "__main__":
 					elif frame_type == 0x0806:
 						frame_type_str = "ARP"
 						parsed_frame = ArpFrame(packet[14:])
+						if parsed_frame.tpa == ip_addr:
+							log("ARP request for my IP address")
+							new_packet = packet[6:12]
+							new_packet.extend(mac_addr)
+							new_packet.extend(packet[12:14])
+							new_packet.extend(parsed_frame.response(mac_addr))
+							send_packet(new_packet)
 					elif frame_type == 0x86DD:
 						frame_type_str = "IPv6"
 					elif frame_type == 0x8100:
@@ -456,12 +496,15 @@ if __name__ == "__main__":
 					packet_type = "Length"
 					frame_type_str = "{:04x}".format(frame_type)
 
+				if input_mac_filter is None or src_mac == input_mac_filter:
+					packet_number += 1
+					log()
+					log("#{:d} src={}, dst={}, {}={}".format(packet_number, src_mac, dst_mac, packet_type, frame_type_str))
 
-				log("#{:d} src={}, dst={}, {}={}".format(packet_number, src_mac, dst_mac, packet_type, frame_type_str))
-				if parsed_frame is not None:
-					log(str(parsed_frame))
-				else:
-					log(" ".join(["{:02x}".format(byte) for byte in packet[14:]]))
+					if parsed_frame is not None:
+						log(str(parsed_frame))
+					else:
+						log(" ".join(["{:02x}".format(byte) for byte in packet[14:]]))
 			else:
 				log(" ".join(["{:02x}".format(byte) for byte in packet]))
 
