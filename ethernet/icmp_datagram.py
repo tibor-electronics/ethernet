@@ -26,6 +26,31 @@ class IcmpDatagram(object):
 		self.payload = payload
 
 
+	def __bytes__(self):
+		ba = bytearray()
+
+		ba.append(self.type)
+		ba.append(self.code)
+		ba.append(0, 0)
+		ba.append((id >> 8) & 0xFF)
+		ba.append(self.sequence_number)
+
+		# calculate checksum
+		checksum = 0
+
+		for i in range(0, len(ba), 2):
+			checksum += ba[i] * 256 + ba[a + 1]
+
+		checksum = ((checksum >> 16) & 0xFFFF) + (checksum & 0xFFFF)
+		checksum += (checksum >> 16)
+		checksum = ~checksem
+
+		ba[2] = (checksum >> 8) & 0xFF
+		ba[3] = checksum & 0xFF
+
+		return bytes(ba)
+
+
 	def __repr__(self):
 		parts = [
 			"ICMP",

@@ -23,20 +23,37 @@ class IpFrame(object):
         total_length = buf[2] * 256 + buf[3]
 
         return cls(
-            version = buf[0] >> 4 & 0x0F,
-            ihl = ihl,
-            type_of_service = buf[1],
-            total_length = total_length,
-            id = buf[4] * 255 + buf[5],
-            flags = buf[6] >> 5 & 0x03,
-            fragment_offset = (buf[6] & 0x3F) * 256 + buf[7],
-            ttl = buf[8],
-            protocol = buf[9],
-            header_checksum = buf[10] * 256 + buf[11],
-            source_address = Ip4Address(buf[12:16]),
-            destination_address = Ip4Address(buf[16:20]),
-            # self.options = [buffer[20 + idx] for idx in range(self.__totalLength - 20)]
-            payload = buf[ihl << 2:total_length],
+            version=buf[0] >> 4 & 0x0F,
+            ihl=ihl,
+            type_of_service=buf[1],
+            total_length=total_length,
+            id=buf[4] * 255 + buf[5],
+            flags=buf[6] >> 5 & 0x03,
+            fragment_offset=(buf[6] & 0x3F) * 256 + buf[7],
+            ttl=buf[8],
+            protocol=buf[9],
+            header_checksum=buf[10] * 256 + buf[11],
+            source_address=Ip4Address(buf[12:16]),
+            destination_address=Ip4Address(buf[16:20]),
+            payload=buf[ihl << 2:total_length]
+        )
+
+
+    def from_ip_frame(cls, frame):
+        return cls(
+            version=frame.version,
+            ihl=frame.ihl,
+            type_of_service=frame.type_of_service,
+            total_length=frame.total_length,
+            id=frame.id,
+            flags=frame.flags,
+            fragment_offset=frame.fragment_offset,
+            ttl=frame.ttl,
+            protocol=frame.protocol,
+            header_checksum=frame.header_checksum,
+            source_address=frame.source_address,
+            destination_address=frame.destination_address,
+            payload=frame.payload
         )
 
 
@@ -63,6 +80,24 @@ class IpFrame(object):
             self.payload = IcmpDatagram.from_buffer(payload)
         else:
             self.payload = ",".join(["{:02x}".format(byte) for byte in payload])
+
+
+    def __bytes__(self):
+        ba = bytearray()
+
+        ba.append(self.version << 4 | self.ihl)
+        ba.append(self.type_of_service)
+        ba.append((self.total_length >> 8) & 0xFF, self.total_length & 0xFF)
+        ba.append((self.id >> 8) & 0xFF, self.id & 0xFF)
+        ba.append(((self.flag << 5) & 0xC0) | (self.fragment_offset >> 8) & 0x3F, self.fragment_offset & 0xFF)
+        ba.append(self.ttl)
+        ba.append(self.protocol)
+        ba.append((self.header_checksum >> 8) & 0xFF, self.header_checksum & 0xFF)
+        ba.append(bytes(self.source_address))
+        ba.append(bytes(self.destination_address))
+        ba.append(bytes(self.payload))
+
+        return bytes(ba)
 
 
     def __repr__(self):

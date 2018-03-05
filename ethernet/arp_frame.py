@@ -1,6 +1,9 @@
 # https://en.wikipedia.org/wiki/Address_Resolution_Protocol#Packet_structure
 
 REPLY = 0x02
+from ethernet.mac_address import MacAddress
+from ethernet.ip4_address import Ip4Address
+
 
 class ArpFrame:
     @classmethod
@@ -19,10 +22,10 @@ class ArpFrame:
             hlen=hlen,
             plen=plen,
             oper=buf[6] * 256 + buf[7],
-            sha=":".join("{:02x}".format(byte) for byte in buf[sha_pos:spa_pos]),
-            spa=".".join("{:d}".format(byte) for byte in buf[spa_pos:tha_pos]),
-            tha=":".join("{:02x}".format(byte) for byte in buf[tha_pos:tpa_pos]),
-            tpa=".".join("{:d}".format(byte) for byte in buf[tpa_pos:tend_pos])
+            sha=MacAddress(buf[sha_pos:spa_pos]),
+            spa=Ip4Address(buf[spa_pos:tha_pos]),
+            tha=MacAddress(buf[tha_pos:tpa_pos]),
+            tpa=Ip4Address(buf[tpa_pos:tend_pos])
         )
 
     def __init__(self, htype=0, ptype=0, hlen=0, plen=0, oper=0, sha=None, spa=None, tha=None, tpa=None):
@@ -45,10 +48,10 @@ class ArpFrame:
             0, REPLY
         ]
 
-        buffer.extend(src_mac_addr)
-        buffer.extend([int(b) for b in self.tpa.split('.')])
-        buffer.extend([int(b, 16) for b in self.sha.split(':')])
-        buffer.extend([int(b) for b in self.spa.split('.')])
+        buffer.extend(bytes(src_mac_addr))
+        buffer.extend(bytes(self.tpa))
+        buffer.extend(bytes(self.sha))
+        buffer.extend(bytes(self.spa))
         buffer.extend([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 
         return buffer

@@ -29,8 +29,8 @@ class EthernetFrame(object):
 
 
 	def __init__(self, dst_mac_addr, src_mac_addr, type, payload):
-		self.dst_mac_addr = dst_mac_addr
-		self.src_mac_addr = src_mac_addr
+		self.dst_mac_address = dst_mac_addr
+		self.src_mac_address = src_mac_addr
 		self.type = type
 
 		# if type >= 0x0600:
@@ -44,8 +44,8 @@ class EthernetFrame(object):
 
 	def __repr__(self):
 		parts = [
-			"dst mac = {}".format(self.dst_mac_addr),
-			"src mac = {}".format(self.src_mac_addr),
+			"dst mac = {}".format(self.dst_mac_address),
+			"src mac = {}".format(self.src_mac_address),
 			"type    = {}".format(self.type),
 			"payload = {}".format(self.payload),
 		]
