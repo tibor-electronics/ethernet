@@ -20,11 +20,21 @@ from ethernet.arp_frame import ArpFrame
 class EthernetFrame(object):
 	@classmethod
 	def from_buffer(cls, buf):
+		type=buf[12] * 256 + buf[13]
+
+		# if type >= 0x0600:
+		if type == 0x0800:
+			payload = IpFrame.from_buffer(buf[14:])
+		elif type == 0x0806:
+			payload = ArpFrame.from_buffer(buf[14:])
+		else:
+			payload = buf[14:]
+
 		return cls(
 			dst_mac_addr=MacAddress(buf[0:6]),
 			src_mac_addr=MacAddress(buf[6:12]),
-			type=buf[12] * 256 + buf[13],
-			payload=buf[14:]
+			type=type,
+			payload=payload
 		)
 
 
@@ -32,14 +42,19 @@ class EthernetFrame(object):
 		self.dst_mac_address = dst_mac_addr
 		self.src_mac_address = src_mac_addr
 		self.type = type
+		self.payload = payload
 
-		# if type >= 0x0600:
-		if type == 0x0800:
-			self.payload = IpFrame.from_buffer(payload)
-		elif type == 0x0806:
-			self.payload = ArpFrame.from_buffer(payload)
-		else:
-			self.payload = ",".join(["{:02x}".format(byte) for byte in payload])
+
+	def __bytes__(self):
+		ba = bytearray()
+
+		ba.extend(bytes(self.dst_mac_address))
+		ba.extend(bytes(self.src_mac_address))
+		ba.append((self.type >> 8) & 0xFF)
+		ba.append(self.type & 0xFF)
+		ba.extend(bytes(self.payload))
+
+		return bytes(ba)
 
 
 	def __repr__(self):
