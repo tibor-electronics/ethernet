@@ -17,7 +17,7 @@ class IcmpDatagram(object):
 		)
 
 
-	def __init__(self, type=TYPE_IPV4, code=0, checksum=0, id=0, sequence_number=0, payload=None):
+	def __init__(self, type=0, code=0, checksum=0, id=0, sequence_number=0, payload=None):
 		self.type = type
 		self.code = code
 		self.checksum = checksum
