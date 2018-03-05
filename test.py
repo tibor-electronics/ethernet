@@ -4,8 +4,10 @@ import sys
 import struct
 import spidev
 
+from ethernet.ethernet_frame import EthernetFrame
 from ethernet.ip_frame import IpFrame
 from ethernet.arp_frame import ArpFrame
+
 
 BANK_MASK = 0x60
 ADDR_MASK = 0x1F
@@ -395,7 +397,7 @@ if __name__ == "__main__":
 	mac_addr = [0x02, 0x03, 0x04, 0x05, 0x06, 0x07]
 	mac_addr_str = ":".join("{:02x}".format(byte) for byte in mac_addr)
 	ip_addr = "10.0.1.254"
-	input_mac_filter = None
+	input_mac_filter = "30:9c:23:0d:2d:7f"
 
 	# connect and configure device
 	spi = spidev.SpiDev()
@@ -459,53 +461,30 @@ if __name__ == "__main__":
 		packet = receive_packet()
 
 		if len(packet) > 0:
-			if len(packet) >= 13:
-				dst_mac = ":".join("{:02x}".format(byte) for byte in packet[0:6])
-				src_mac = ":".join("{:02x}".format(byte) for byte in packet[6:12])
-				(frame_type,) = struct.unpack(">H", bytes(packet[12:14]))
+			if len(packet) >= 14:
+				frame = EthernetFrame.from_buffer(packet)
 
-				if frame_type >= 0x0600:
-					packet_type = "EtherType"
-					parsed_frame = None
+				# if frame.type in (0x0800, 0x0806):
+				if frame.type == 0x0806:
+					packet_number += 1
+					log()
+					log("#{:d}\n{}".format(packet_number, frame))
 
-					# https://en.wikipedia.org/wiki/EtherType
-					if frame_type == 0x0800:
-						frame_type_str = "IPv4"
-						parsed_frame = IpFrame(packet[14:])
-					elif frame_type == 0x0806:
-						frame_type_str = "ARP"
-						parsed_frame = ArpFrame(packet[14:])
-						if parsed_frame.tpa == ip_addr:
-							log("ARP request for my IP address")
+					if frame.type == 0x0806:	# ARP
+						if frame.payload.tpa == ip_addr:
 							new_packet = packet[6:12]
 							new_packet.extend(mac_addr)
 							new_packet.extend(packet[12:14])
-							new_packet.extend(parsed_frame.response(mac_addr))
+							new_packet.extend(frame.payload.response(mac_addr))
 							send_packet(new_packet)
-					elif frame_type == 0x86DD:
-						frame_type_str = "IPv6"
-					elif frame_type == 0x8100:
-						frame_type_str = "802.1Q"
-					elif frame_type == 0x809B:
-						frame_type_str = "AppleTalk"
-					elif frame_type == 0x80F3:
-						frame_type_str = "AARP"
-					else:
-						frame_type_str = "{:04x}".format(frame_type)
-				else:
-					packet_type = "Length"
-					frame_type_str = "{:04x}".format(frame_type)
 
-				if input_mac_filter is None or src_mac == input_mac_filter:
-					packet_number += 1
-					log()
-					log("#{:d} src={}, dst={}, {}={}".format(packet_number, src_mac, dst_mac, packet_type, frame_type_str))
-
-					if parsed_frame is not None:
-						log(str(parsed_frame))
-					else:
-						log(" ".join(["{:02x}".format(byte) for byte in packet[14:]]))
+					# 	if frame.type == 0x0800:
+					# 		frame_type_str = "IPv4"
+					# 		parsed_frame = IpFrame(packet[14:])
+					# 		if parsed_frame.protocol == 1:
+					# 			if parsed_frame.payload.type == 8:
+					# 				log("ICMP Request")
 			else:
-				log(" ".join(["{:02x}".format(byte) for byte in packet]))
+				log("possibly invalid packet: " + " ".join(["{:02x}".format(byte) for byte in packet]))
 
 	log("done")

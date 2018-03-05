@@ -3,20 +3,38 @@
 REPLY = 0x02
 
 class ArpFrame:
-    def __init__(self, buffer):
-        self.htype = buffer[0] * 256 + buffer[1]
-        self.ptype = buffer[2] * 256 + buffer[3]
-        self.hlen = buffer[4]
-        self.plen = buffer[5]
-        self.oper = buffer[6] * 256 + buffer[7]
-        pos = 8
-        self.sha = ":".join('%02x' % buffer[pos+idx] for idx in range(self.hlen))
-        pos += self.hlen
-        self.spa = ".".join('%d' % buffer[pos+idx] for idx in range(self.plen))
-        pos += self.plen
-        self.tha = ":".join('%02x' % buffer[pos+idx] for idx in range(self.hlen))
-        pos += self.hlen
-        self.tpa = ".".join('%d' % buffer[pos+idx] for idx in range(self.plen))
+    @classmethod
+    def from_buffer(cls, buf):
+        hlen = buf[4]
+        plen=buf[5]
+        sha_pos = 8
+        spa_pos = sha_pos + hlen
+        tha_pos = spa_pos + plen
+        tpa_pos = tha_pos + hlen
+        tend_pos = tpa_pos + plen
+
+        return cls(
+            htype=buf[0] * 256 + buf[1],
+            ptype=buf[2] * 256 + buf[3],
+            hlen=hlen,
+            plen=plen,
+            oper=buf[6] * 256 + buf[7],
+            sha=":".join("{:02x}".format(byte) for byte in buf[sha_pos:spa_pos]),
+            spa=".".join("{:d}".format(byte) for byte in buf[spa_pos:tha_pos]),
+            tha=":".join("{:02x}".format(byte) for byte in buf[tha_pos:tpa_pos]),
+            tpa=".".join("{:d}".format(byte) for byte in buf[tpa_pos:tend_pos])
+        )
+
+    def __init__(self, htype=0, ptype=0, hlen=0, plen=0, oper=0, sha=None, spa=None, tha=None, tpa=None):
+        self.htype = htype
+        self.ptype = ptype
+        self.hlen = hlen
+        self.plen = plen
+        self.oper = oper
+        self.sha = sha
+        self.spa = spa
+        self.tha = tha
+        self.tpa = tpa
 
     def response(self, src_mac_addr):
         buffer = [
@@ -37,6 +55,10 @@ class ArpFrame:
 
     def __repr__(self):
         parts = [
+            "ARP",
+            "htype                   = {}".format(self.htype),
+            "ptype                   = {}".format(self.ptype),
+            "oper                    = {}".format(self.oper),
             "sender hardware address = {}".format(self.sha),
             "sender protocol address = {}".format(self.spa),
             "target hardware address = {}".format(self.tha),

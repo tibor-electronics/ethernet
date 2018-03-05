@@ -9,7 +9,7 @@ class UdpDatagram:
 
     def __repr__(self):
         parts = [
-            "",
+            "UDP",
             "src port = {}".format(self.source_port),
             "dst port = {}".format(self.destination_port),
             "length   = {}".format(self.length),
