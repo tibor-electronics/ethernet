@@ -460,31 +460,29 @@ if __name__ == "__main__":
 
 		packet = receive_packet()
 
-		if len(packet) > 0:
-			if len(packet) >= 14:
-				frame = EthernetFrame.from_buffer(packet)
+		if len(packet) == 0:
+			continue
+		elif len(packet) >= 14:
+			frame = EthernetFrame.from_buffer(packet)
 
-				# if frame.type in (0x0800, 0x0806):
-				if frame.type == 0x0806:
-					packet_number += 1
-					log()
-					log("#{:d}\n{}".format(packet_number, frame))
+			# if frame.type in (0x0800, 0x0806):
+			if frame.type == 0x0806:
+				packet_number += 1
+				log()
+				log("#{:d}\n{}".format(packet_number, frame))
 
-					if frame.type == 0x0806:	# ARP
-						if frame.payload.tpa == ip_addr:
-							new_packet = packet[6:12]
-							new_packet.extend(mac_addr)
-							new_packet.extend(packet[12:14])
-							new_packet.extend(frame.payload.response(mac_addr))
-							send_packet(new_packet)
-
-					# 	if frame.type == 0x0800:
-					# 		frame_type_str = "IPv4"
-					# 		parsed_frame = IpFrame(packet[14:])
-					# 		if parsed_frame.protocol == 1:
-					# 			if parsed_frame.payload.type == 8:
-					# 				log("ICMP Request")
-			else:
-				log("possibly invalid packet: " + " ".join(["{:02x}".format(byte) for byte in packet]))
+				if frame.type == 0x0800:	# IPv4
+					if frame.payload.protocol == 1:
+						if frame.payload.payload.type == 8:
+							log("ICMP Request")
+				if frame.type == 0x0806:	# ARP
+					if frame.payload.tpa == ip_addr:
+						new_packet = packet[6:12]
+						new_packet.extend(mac_addr)
+						new_packet.extend(packet[12:14])
+						new_packet.extend(frame.payload.response(mac_addr))
+						send_packet(new_packet)
+		else:
+			log("possibly invalid packet: " + " ".join(["{:02x}".format(byte) for byte in packet]))
 
 	log("done")
