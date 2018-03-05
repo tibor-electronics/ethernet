@@ -1,3 +1,5 @@
+# https://en.wikipedia.org/wiki/Ethernet_frame#Structure
+
 from ethernet.mac_address import MacAddress
 from ethernet.ip_frame import IpFrame
 from ethernet.arp_frame import ArpFrame
@@ -12,6 +14,8 @@ from ethernet.arp_frame import ArpFrame
 # 	0x809B: "AppleTalk"
 # 	0x80F3: "AARP"
 # }
+
+# Layer 2 ethernet frame
 
 class EthernetFrame(object):
 	@classmethod
