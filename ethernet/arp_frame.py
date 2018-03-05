@@ -28,6 +28,21 @@ class ArpFrame:
             tpa=Ip4Address(buf[tpa_pos:tend_pos])
         )
 
+    @classmethod
+    def from_arp_frame(cls, frame):
+        return cls(
+            htype=frame.htype,
+            ptype=frame.ptype,
+            hlen=frame.hlen,
+            plen=frame.plen,
+            oper=frame.oper,
+            sha=frame.sha,
+            spa=frame.spa,
+            tha=frame.tha,
+            tpa=frame.tpa
+        )
+
+
     def __init__(self, htype=0, ptype=0, hlen=0, plen=0, oper=0, sha=None, spa=None, tha=None, tpa=None):
         self.htype = htype
         self.ptype = ptype
@@ -39,22 +54,25 @@ class ArpFrame:
         self.tha = tha
         self.tpa = tpa
 
-    def response(self, src_mac_addr):
-        buffer = [
-            (self.htype >> 8) & 0xFF, self.htype & 0xFF,
-            (self.ptype >> 8) & 0xFF, self.ptype & 0xFF,
-            self.hlen,
-            self.plen,
-            0, REPLY
-        ]
+    def __bytes__(self):
+        ba = bytearray()
 
-        buffer.extend(bytes(src_mac_addr))
-        buffer.extend(bytes(self.tpa))
-        buffer.extend(bytes(self.sha))
-        buffer.extend(bytes(self.spa))
-        buffer.extend([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        ba.append((self.htype >> 8) & 0xFF)
+        ba.append(self.htype & 0xFF)
+        ba.append((self.ptype >> 8) & 0xFF)
+        ba.append(self.ptype & 0xFF)
+        ba.append(self.hlen)
+        ba.append(self.plen)
+        ba.append(0)
+        ba.append(REPLY)
 
-        return buffer
+        ba.extend(bytes(self.sha))
+        ba.extend(bytes(self.spa))
+        ba.extend(bytes(self.tha))
+        ba.extend(bytes(self.tpa))
+        ba.extend([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+
+        return bytes(ba)
 
     def __repr__(self):
         parts = [
