@@ -21,6 +21,14 @@ class IpFrame(object):
     def from_buffer(cls, buf):
         ihl = buf[0] & 0x0F
         total_length = buf[2] * 256 + buf[3]
+        protocol = buf[9]
+
+        if protocol == 1:
+            payload = IcmpDatagram.from_buffer(buf[ihl << 2:total_length])
+        elif protocol == 17:
+            payload = UdpDatagram.from_buffer(buf[ihl << 2:total_length])
+        else:
+            payload = buf[ihl << 2:total_length]
 
         return cls(
             version=buf[0] >> 4 & 0x0F,
@@ -31,11 +39,11 @@ class IpFrame(object):
             flags=buf[6] >> 5 & 0x03,
             fragment_offset=(buf[6] & 0x3F) * 256 + buf[7],
             ttl=buf[8],
-            protocol=buf[9],
+            protocol=protocol,
             header_checksum=buf[10] * 256 + buf[11],
             source_address=Ip4Address(buf[12:16]),
             destination_address=Ip4Address(buf[16:20]),
-            payload=buf[ihl << 2:total_length]
+            payload=payload
         )
 
 
@@ -73,13 +81,7 @@ class IpFrame(object):
         self.source_address = source_address
         self.destination_address = destination_address
         # self.options = [buffer[20 + idx] for idx in range(self.__totalLength - 20)]
-
-        if self.protocol == 17:
-            self.payload = UdpDatagram(payload)
-        elif self.protocol == 1:
-            self.payload = IcmpDatagram.from_buffer(payload)
-        else:
-            self.payload = ",".join(["{:02x}".format(byte) for byte in payload])
+        self.payload = payload
 
 
     def __bytes__(self):
@@ -87,15 +89,19 @@ class IpFrame(object):
 
         ba.append(self.version << 4 | self.ihl)
         ba.append(self.type_of_service)
-        ba.append((self.total_length >> 8) & 0xFF, self.total_length & 0xFF)
-        ba.append((self.id >> 8) & 0xFF, self.id & 0xFF)
-        ba.append(((self.flag << 5) & 0xC0) | (self.fragment_offset >> 8) & 0x3F, self.fragment_offset & 0xFF)
+        ba.append((self.total_length >> 8) & 0xFF)
+        ba.append(self.total_length & 0xFF)
+        ba.append((self.id >> 8) & 0xFF)
+        ba.append(self.id & 0xFF)
+        ba.append(((self.flag << 5) & 0xC0) | (self.fragment_offset >> 8) & 0x3F)
+        ba.append(self.fragment_offset & 0xFF)
         ba.append(self.ttl)
         ba.append(self.protocol)
-        ba.append((self.header_checksum >> 8) & 0xFF, self.header_checksum & 0xFF)
-        ba.append(bytes(self.source_address))
-        ba.append(bytes(self.destination_address))
-        ba.append(bytes(self.payload))
+        ba.append((self.header_checksum >> 8) & 0xFF)
+        ba.append(self.header_checksum & 0xFF)
+        ba.extend(bytes(self.source_address))
+        ba.extend(bytes(self.destination_address))
+        ba.extend(bytes(self.payload))
 
         return bytes(ba)
 
@@ -118,8 +124,8 @@ class IpFrame(object):
             "ttl      = {}".format(self.ttl),
             "protocol = {}".format(protocol_str),
             "checksum = {}".format(self.header_checksum),
-            "src      = {}".format(self.source_address),
-            "dst      = {}".format(self.destination_address),
+            "src addr = {}".format(self.source_address),
+            "dst addr = {}".format(self.destination_address),
             "payload  = {}".format(self.payload)
         ]
 
