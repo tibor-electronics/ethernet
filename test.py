@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import sys
+from time import sleep
 
 from ethernet.mac_address import MacAddress
 from ethernet.ip4_address import Ip4Address
@@ -18,21 +19,19 @@ def log(message=""):
 if __name__ == "__main__":
 	mac_addr = MacAddress([0x02, 0x03, 0x04, 0x05, 0x06, 0x07])
 	ip_addr = Ip4Address([10, 0, 1, 254])
-	filter_mac_address = MacAddress([0x30, 0x9c, 0x23, 0x0d, 0x2d, 0x7f])
+	filter_mac_address = None  # MacAddress([0x30, 0x9c, 0x23, 0x0d, 0x2d, 0x7f])
 
 	driver = Enc28j60(mac_addr)
 	driver.initialize()
 	log("ENC28J60 Revision {:d}".format(driver.revision))
 
-	link_status = driver.is_link_up
 	packet_number = 0
 
-	while packet_number < 1000000:
-		new_status = driver.is_link_up
-
-		if link_status != new_status:
-			link_status = new_status
-			log("link status = {}".format(link_status))
+	while True:
+		if not driver.is_link_up:
+			log("link down. Trying again in 1 second")
+			sleep(1)
+			continue
 
 		packet = driver.receive_packet()
 
@@ -41,7 +40,7 @@ if __name__ == "__main__":
 		elif len(packet) >= 14:
 			frame = EthernetFrame.from_buffer(packet)
 
-			if frame.src_mac_address != filter_mac_address:
+			if filter_mac_address is not None and frame.src_mac_address != filter_mac_address:
 				continue
 
 			if frame.type in (0x0800, 0x0806):
