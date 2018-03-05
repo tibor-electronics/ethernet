@@ -6,6 +6,8 @@ from ethernet.mac_address import MacAddress
 from ethernet.ip4_address import Ip4Address
 from ethernet.enc28j60 import Enc28j60
 from ethernet.ethernet_frame import EthernetFrame
+from ethernet.arp_frame import ArpFrame
+from ethernet.icmp_datagram import IcmpDatagram
 
 
 def log(message=""):
@@ -46,20 +48,31 @@ if __name__ == "__main__":
 			# if frame.type == 0x0806:
 				packet_number += 1
 				log()
-				log("#{:d}\n{}".format(packet_number, frame))
 
 				if frame.type == 0x0800:	# IPv4
 					if frame.payload.protocol == 1:
 						if frame.payload.payload.type == 8:
 							log("ICMP Request")
-				if frame.type == 0x0806:	# ARP
+							current_datagram = frame.payload.payload
+							new_datagram = IcmpDatagram()
+							new_datagram.id = current_datagram.id
+							new_datagram.sequence_number = current_datagram.sequence_number
+							# build ip frame
+							# build ethernet frame
+							# send frame
+				elif frame.type == 0x0806:	# ARP
 					if frame.payload.tpa == ip_addr:
 						print("ARP for my IP")
-						new_packet = packet[6:12]
-						new_packet.extend(bytes(mac_addr))
-						new_packet.extend(packet[12:14])
-						new_packet.extend(frame.payload.response(mac_addr))
-						driver.send_packet(new_packet)
+						new_arp_frame = ArpFrame.from_arp_frame(frame.payload)
+						new_arp_frame.tha = new_arp_frame.sha
+						new_arp_frame.tpi = new_arp_frame.spa
+						new_arp_frame.sha = driver.mac_address
+						new_arp_frame.spa = ip_addr
+						log(new_arp_frame)
+						new_frame = EthernetFrame(frame.src_mac_address, driver.mac_address, 0x0806, new_arp_frame)
+						driver.send_packet(bytes(new_frame))
+				
+				log("#{:d}\n{}".format(packet_number, frame))
 		else:
 			log("possibly invalid packet: " + " ".join(["{:02x}".format(byte) for byte in packet]))
 
