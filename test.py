@@ -465,8 +465,8 @@ if __name__ == "__main__":
 		elif len(packet) >= 14:
 			frame = EthernetFrame.from_buffer(packet)
 
-			# if frame.type in (0x0800, 0x0806):
-			if frame.type == 0x0806:
+			if frame.type in (0x0800, 0x0806):
+			# if frame.type == 0x0806:
 				packet_number += 1
 				log()
 				log("#{:d}\n{}".format(packet_number, frame))
